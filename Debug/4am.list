@@ -190,9 +190,9 @@ int main(void)
  80001e2:	2300      	movs	r3, #0
  80001e4:	713b      	strb	r3, [r7, #4]
  80001e6:	e019      	b.n	800021c <main+0xd0>
-			  Frame[i][j] = Frame[(i+1)%128][j];
+			  Frame[i][j] = Frame[(i+2)%128][j];
  80001e8:	797b      	ldrb	r3, [r7, #5]
- 80001ea:	3301      	adds	r3, #1
+ 80001ea:	3302      	adds	r3, #2
  80001ec:	425a      	negs	r2, r3
  80001ee:	f003 037f 	and.w	r3, r3, #127	; 0x7f
  80001f2:	f002 027f 	and.w	r2, r2, #127	; 0x7f

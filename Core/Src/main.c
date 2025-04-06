@@ -130,7 +130,7 @@ int main(void)
   {
 	 for(uint8_t i = 0 ; i < 128 ; i++){
 		  for(uint8_t j = 0 ; j < 128 ; j++){
-			  Frame[i][j] = Frame[(i+1)%128][j];
+			  Frame[i][j] = Frame[(i+2)%128][j];
 		  }
 	  }
 
