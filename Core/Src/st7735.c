@@ -306,14 +306,14 @@ static uint8_t LineBuf[256];
 
 void ST7735_DrawFrame(uint8_t Frame[128][128]) {
     for (uint16_t y = 0; y < 128; y++) {
-        // Convert grayscale line to RGB565
+
         for (uint16_t x = 0; x < 128; x++) {
             uint16_t color = RGB565[Frame[y][x]];
-            LineBuf[x * 2]     = color >> 8;      // MSB
-            LineBuf[x * 2 + 1] = color & 0xFF;    // LSB
+            LineBuf[x * 2]     = color >> 8;
+            LineBuf[x * 2 + 1] = color & 0xFF;
         }
 
-        // Set address window to the current line
+
         ST7735_Select();
         ST7735_SetAddressWindow(0, y, 127, y);
         HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_SET);

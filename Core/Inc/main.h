@@ -57,42 +57,24 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define D0_Pin GPIO_PIN_0
-#define D0_GPIO_Port GPIOA
-#define D1_Pin GPIO_PIN_1
-#define D1_GPIO_Port GPIOA
-#define D2_Pin GPIO_PIN_2
-#define D2_GPIO_Port GPIOA
-#define D3_Pin GPIO_PIN_3
-#define D3_GPIO_Port GPIOA
-#define D4_Pin GPIO_PIN_4
-#define D4_GPIO_Port GPIOA
-#define D5_Pin GPIO_PIN_5
-#define D5_GPIO_Port GPIOA
-#define D6_Pin GPIO_PIN_6
-#define D6_GPIO_Port GPIOA
-#define D7_Pin GPIO_PIN_7
-#define D7_GPIO_Port GPIOA
-#define PWDN_Pin GPIO_PIN_1
-#define PWDN_GPIO_Port GPIOB
-#define CAMERA_RESET_Pin GPIO_PIN_2
-#define CAMERA_RESET_GPIO_Port GPIOB
+#define DOWN_Pin GPIO_PIN_0
+#define DOWN_GPIO_Port GPIOA
+#define RIGHT_Pin GPIO_PIN_1
+#define RIGHT_GPIO_Port GPIOA
+#define FIRE_Pin GPIO_PIN_2
+#define FIRE_GPIO_Port GPIOA
+#define LEFT_Pin GPIO_PIN_3
+#define LEFT_GPIO_Port GPIOA
+#define UP_Pin GPIO_PIN_4
+#define UP_GPIO_Port GPIOA
 #define ST7735_BL_Pin GPIO_PIN_12
 #define ST7735_BL_GPIO_Port GPIOB
 #define ST7735_DC_Pin GPIO_PIN_14
 #define ST7735_DC_GPIO_Port GPIOB
-#define MCLK_Pin GPIO_PIN_8
-#define MCLK_GPIO_Port GPIOA
 #define ST7735_CS_Pin GPIO_PIN_9
 #define ST7735_CS_GPIO_Port GPIOA
 #define ST7735_RES_Pin GPIO_PIN_10
 #define ST7735_RES_GPIO_Port GPIOA
-#define PIXCLK_Pin GPIO_PIN_5
-#define PIXCLK_GPIO_Port GPIOB
-#define vSYNC_Pin GPIO_PIN_8
-#define vSYNC_GPIO_Port GPIOB
-#define HSYNC_Pin GPIO_PIN_9
-#define HSYNC_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 /* USER CODE END Private defines */

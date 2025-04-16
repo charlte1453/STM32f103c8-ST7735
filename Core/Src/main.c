@@ -22,8 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "st7735.h"
-
-
+#include <stdlib.h>
+#include "sprites.h"
 
 /* USER CODE END Includes */
 
@@ -43,16 +43,109 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
-
 SPI_HandleTypeDef hspi2;
 DMA_HandleTypeDef hdma_spi2_tx;
-
-TIM_HandleTypeDef htim1;
 
 PCD_HandleTypeDef hpcd_USB_FS;
 
 /* USER CODE BEGIN PV */
+
+#define MAXBULLETS 128
+#define MAXENEMYBULLETS 50
+
+struct enemy {
+	uint8_t x;
+	uint8_t y;
+	uint8_t isAlive;
+	uint8_t isDying;
+};
+
+ struct bullet {
+	uint8_t x;
+	uint8_t y;
+	uint8_t speed;
+	uint8_t isActive;
+};
+
+ struct player {
+	uint8_t x;
+	uint8_t y;
+	int8_t dx;
+	int8_t dy;
+	uint8_t sprite; // 0 is normal , 1 is left orientated , 2 is right orientated
+};
+
+struct enemyBullets {
+	 uint8_t x;
+	 uint8_t y;
+	 uint8_t dx;
+	 uint8_t dy;
+	 uint8_t isActive;
+ };
+
+struct  bullet Bullets[MAXBULLETS];
+struct enemyBullets evilBullets[MAXENEMYBULLETS];
+
+void init_Bullets(){
+	for(int i = 0 ; i < MAXBULLETS ; i++){
+		Bullets[i].x = 0;
+		Bullets[i].y = 0;
+		Bullets[i].speed = 0;
+		Bullets[i].isActive = 0;
+	};
+}
+void init_enemyBullets(){
+	for(int i = 0 ; i < MAXENEMYBULLETS ; i++){
+		evilBullets[i].x = 0;
+		evilBullets[i].y = 0;
+		evilBullets[i].dx= 0;
+		evilBullets[i].dy = 0;
+		evilBullets[i].isActive= 0;
+	}
+}
+
+
+
+
+
+
+
+
+struct enemy enemyList[20] = {
+    {124, 42 , 1 , 0 },
+    {59, 15 , 1 , 0},
+    {44, 1 , 1 , 0 },
+    {102, 4 , 1 , 0},
+    {8, 16 , 1 , 0},
+    {44, 28 , 1 , 0},
+    {24, 22 , 1 , 0},
+    {111, 30 , 1 , 0 },
+    {87, 13 , 1 , 0},
+    {81, 37 , 1 , 0},
+    {6, 33 , 1 , 0 },
+    {35, 43 , 1 , 0},
+    {105, 49  , 1 , 0},
+    {69, 48 , 1 , 0 },
+    {119, 15 , 1 , 0},
+    {71, 1 , 1 , 0},
+    {24, 1 , 1 , 0},
+    {127, 1 ,1 , 0},
+    {19, 48 , 1 , 0},
+    {52, 46 , 1 , 0}
+};
+int attackPattern[10][5] = {
+    {13,  2, 18,  7, 11},
+    { 0,  9,  4,  1, 17},
+    { 6, 14, 19, 12,  3},
+    {15,  8,  5,  2, 20},
+    {16,  7, 13,  0,  6},
+    {10,  4,  1, 18, 11},
+    { 3,  8, 17, 12,  5},
+    {14,  9,  6, 19,  2},
+    { 7, 15, 20,  0, 10},
+    {16,  1,  3, 13,  9}
+};
+struct player playerObj = {64 , 110 ,  0 , 0};
 
 /* USER CODE END PV */
 
@@ -60,17 +153,159 @@ PCD_HandleTypeDef hpcd_USB_FS;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USB_PCD_Init(void);
-static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//void EXTI4_IRQHandler(void){
+//
+//	/*if(~gameStarted){
+//		gameStarted = 1;
+//		EXTI->PR |= EXTI_PR_PR4;
+//
+//		return;
+//
+//	}*/
+//	ST7735_FillRectangleFast(playerObj.x , playerObj.y , 9 , 9 , 0x0000);
+//	playerObj.x++;
+//	ST7735_DrawImage(playerObj.x , playerObj.y , 9 , 9 , player_ship_flat);
+//
+//	EXTI->PR |= EXTI_PR_PR4;
+//
+//}
 
+void killEnemy(struct enemy* enemy){
+	enemy->isDying = 1;
+}
+void calculateCollisions(){
+	for(int i = 0 ; i < MAXBULLETS ; i++){
+		if(Bullets[i].isActive == 0){
+			return;
+		}
+
+		for(int j = 0 ; j <20 ; j++){
+			if(enemyList[j].isAlive == 0){
+				continue;
+			}
+
+			int8_t disp_x = enemyList[j].x-Bullets[i].x;
+			int8_t disp_y = enemyList[j].y-Bullets[i].y;
+			disp_x = abs(disp_x);
+			disp_y = abs(disp_y);
+
+			if(disp_x < 8 && disp_y < 8){
+				killEnemy(&enemyList[j]);
+				Bullets[i].isActive = 0;
+				ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , 0x0000);
+				break;
+			}
+		}
+
+	}
+}
+
+void update_Bullets(){
+	for(int i = 0 ; i < MAXBULLETS ; i++){
+		if(!Bullets[i].isActive){
+			continue;
+		}
+
+		if(Bullets[i].y == 127){
+			Bullets[i].isActive = 0;
+		}
+
+		ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , 0x0000);
+		Bullets[i].y -= Bullets[i].speed;
+		ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , 0xFFFF);
+	}
+}
+//void EXTI3_IRQHandler(void){
+//
+//	/*if(~gameStarted){
+//		gameStarted = 1;
+//		EXTI->PR |= EXTI_PR_PR4;
+//
+//		return;
+//
+//	}*/
+//
+//	for (int i = 0; i < MAXBULLETS; i++) {
+//	            if (!Bullets[i].isActive) {
+//	                Bullets[i].x = playerObj.x+5;
+//	                Bullets[i].y = playerObj.y+1;
+//	                Bullets[i].speed = 4;
+//	                Bullets[i].isActive = 1;
+//	                break;
+//	            }
+//	        }
+//
+//	EXTI->PR |= EXTI_PR_PR3;
+//
+//}
+//void EXTI1_IRQHandler(void){
+//
+//	/*if(~gameStarted){
+//		gameStarted = 1;
+//		EXTI->PR |= EXTI_PR_PR4;
+//
+//		return;
+//
+//	}*/
+//
+//	ST7735_FillRectangleFast(playerObj.x , playerObj.y , 9 , 9 , 0x0000);
+//	playerObj.x--;
+//	ST7735_DrawImage(playerObj.x , playerObj.y , 9 , 9 , player_ship_flat);
+//	EXTI->PR |= EXTI_PR_PR1;
+//
+//}
+
+void updateEnemyStates(){
+	for(int i = 0 ; i < 20 ; i++){
+		if(enemyList[i].isAlive == 0){
+			continue;
+		}else if(enemyList[i].isDying == 1){
+			enemyList[i].isDying++ ;
+			ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_dying1);
+		}else if(enemyList[i].isDying == 2){
+			enemyList[i].isDying++ ;
+			ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_dying2);
+		}else if(enemyList[i].isDying == 3){
+			enemyList[i].isAlive = 0;
+			enemyList[i].isDying = 0;
+			ST7735_FillRectangleFast(enemyList[i].x , enemyList[i].y , 8 , 8 , 0x0000);
+		}
+	}
+}
+
+void updatePlayerSpeed(){
+	int8_t speed = GPIOA->IDR;
+	if((speed & 0x1B )== 0){
+		playerObj.dx = 0;
+		playerObj.dy = 0;
+		return;
+	}
+
+	if(playerObj.dx == 0x3) speed &= ~(0x09);
+	if(playerObj.dy == 0x3) speed &= ~(0x11);
+
+
+	if(speed & DOWN_Pin) playerObj.dy++;
+	if(speed & UP_Pin) playerObj.dy--;
+	if(speed & LEFT_Pin) playerObj.dx--;
+	if(speed & RIGHT_Pin) playerObj.dx++;
+}
+
+void updatePlayerPosition(){
+	ST7735_FillRectangleFast(playerObj.x , playerObj.y , 12 , 11 , 0x0000);
+	playerObj.x += playerObj.dx ;
+	playerObj.y += playerObj.dy ;
+
+	ST7735_DrawImage(playerObj.x , playerObj.y , 12 , 11 , player_ship_flat);
+}
 /* USER CODE END 0 */
 
 /**
@@ -101,40 +336,48 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_I2C1_Init();
   MX_SPI2_Init();
   MX_USB_PCD_Init();
-  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_GPIO_WritePin(ST7735_RES_GPIO_Port, ST7735_RES_Pin , GPIO_PIN_SET);
-  HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin , GPIO_PIN_SET);
   ST7735_Init();
-  ST7735_FillScreen(0xFFFF);
-  HAL_Delay(1000);
-  static uint8_t Frame[128][128];
+  ST7735_FillScreenFast(0x0000);
 
-  for(uint8_t i = 0 ; i < 128 ; i++){
-	  for(uint8_t j = 0 ; j < 128 ; j++){
-		  Frame[i][j] = i;
-	  }
+  init_Bullets();
+
+  for(int i = 0 ; i <20 ; i++){
+	  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat1 );
   }
 
-  ST7735_DrawFrame(Frame);
-
+  ST7735_DrawImage(playerObj.x , playerObj.y , 12 , 11 , player_ship_flat);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
-	 for(uint8_t i = 0 ; i < 128 ; i++){
-		  for(uint8_t j = 0 ; j < 128 ; j++){
-			  Frame[i][j] = Frame[(i+2)%128][j];
+	  updatePlayerSpeed();
+	  updatePlayerPosition();
+	  update_Bullets();
+	  calculateCollisions();
+	  for(int i = 0 ; i < 20 ; i++){
+		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
+			  continue;
+		  }else{
+			  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat1);
 		  }
 	  }
-
-	  ST7735_DrawFrame(Frame);
+	  updateEnemyStates();
+	  HAL_Delay(100);
+	  for(int i = 0 ; i < 20 ; i++){
+		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
+			  continue;
+		  }else{
+			  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat2);
+		  }
+	  }
+	  HAL_Delay(100);
 
     /* USER CODE END WHILE */
 
@@ -188,41 +431,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  HAL_RCC_MCOConfig(RCC_MCO, RCC_MCO1SOURCE_PLLCLK, RCC_MCODIV_1);
-}
-
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
+  HAL_RCC_MCOConfig(RCC_MCO, RCC_MCO1SOURCE_HSE, RCC_MCODIV_1);
 }
 
 /**
@@ -260,52 +469,6 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
-
-}
-
-/**
-  * @brief TIM1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM1_Init(void)
-{
-
-  /* USER CODE BEGIN TIM1_Init 0 */
-
-  /* USER CODE END TIM1_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM1_Init 1 */
-
-  /* USER CODE END TIM1_Init 1 */
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 3;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM1_Init 2 */
-  htim1.Instance->BDTR = TIM_BDTR_MOE;
-  /* USER CODE END TIM1_Init 2 */
 
 }
 
@@ -377,7 +540,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, PWDN_Pin|CAMERA_RESET_Pin|ST7735_BL_Pin|ST7735_DC_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, ST7735_BL_Pin|ST7735_DC_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, ST7735_CS_Pin|ST7735_RES_Pin, GPIO_PIN_RESET);
@@ -389,26 +552,26 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : D0_Pin D1_Pin D2_Pin D3_Pin
-                           D4_Pin D5_Pin D6_Pin D7_Pin */
-  GPIO_InitStruct.Pin = D0_Pin|D1_Pin|D2_Pin|D3_Pin
-                          |D4_Pin|D5_Pin|D6_Pin|D7_Pin;
+  /*Configure GPIO pins : DOWN_Pin RIGHT_Pin FIRE_Pin LEFT_Pin
+                           UP_Pin */
+  GPIO_InitStruct.Pin = DOWN_Pin|RIGHT_Pin|FIRE_Pin|LEFT_Pin
+                          |UP_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PWDN_Pin CAMERA_RESET_Pin ST7735_BL_Pin ST7735_DC_Pin */
-  GPIO_InitStruct.Pin = PWDN_Pin|CAMERA_RESET_Pin|ST7735_BL_Pin|ST7735_DC_Pin;
+  /*Configure GPIO pins : ST7735_BL_Pin ST7735_DC_Pin */
+  GPIO_InitStruct.Pin = ST7735_BL_Pin|ST7735_DC_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : MCLK_Pin */
-  GPIO_InitStruct.Pin = MCLK_Pin;
+  /*Configure GPIO pin : PA8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(MCLK_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ST7735_CS_Pin ST7735_RES_Pin */
   GPIO_InitStruct.Pin = ST7735_CS_Pin|ST7735_RES_Pin;
@@ -416,18 +579,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PIXCLK_Pin */
-  GPIO_InitStruct.Pin = PIXCLK_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(PIXCLK_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : vSYNC_Pin HSYNC_Pin */
-  GPIO_InitStruct.Pin = vSYNC_Pin|HSYNC_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
