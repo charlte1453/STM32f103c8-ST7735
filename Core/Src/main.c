@@ -62,6 +62,8 @@ struct enemy {
 	uint8_t sprite;
 	uint8_t ticksUntilSpriteChange;
 	uint8_t ticksSinceLastChange;
+	int8_t dx;
+	int8_t dy;
 };
 
  struct bullet {
@@ -188,6 +190,9 @@ static void MX_USB_PCD_Init(void);
 
 void killEnemy(struct enemy* enemy){
 	enemy->isDying = 1;
+	enemy->ticksSinceLastChange = 0;
+	ST7735_DrawImage(enemy->x , enemy->y , 8 , 8 , enemy_ship_dying1);
+
 }
 void calculateCollisions(){
 	for(int i = 0 ; i < MAXBULLETS ; i++){
@@ -215,6 +220,8 @@ void calculateCollisions(){
 
 	}
 }
+uint16_t playerBulletColour = 0xFFFF;
+uint16_t EnemyBulletColour = 0xFFFF;
 
 void update_Bullets(){
 	for(int i = 0 ; i < MAXBULLETS ; i++){
@@ -229,7 +236,7 @@ void update_Bullets(){
 
 		ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , 0x0000);
 		Bullets[i].y -= Bullets[i].speed;
-		ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , 0xFFFF);
+		ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , playerBulletColour);
 	}
 
 	for(int i = 0 ; i < MAXENEMYBULLETS ; i++){
@@ -243,7 +250,7 @@ void update_Bullets(){
 
 		ST7735_DrawPixel(evilBullets[i].x , evilBullets[i].y , 0x0000);
 		evilBullets[i].y -= evilBullets[i].dy;
-		ST7735_DrawPixel(evilBullets[i].x , evilBullets[i].y , 0xFFFF);
+		ST7735_DrawPixel(evilBullets[i].x , evilBullets[i].y , EnemyBulletColour);
 
 	}
 }
@@ -286,20 +293,23 @@ void EXTI2_IRQHandler(void){
 //	EXTI->PR |= EXTI_PR_PR1;
 //
 //}
-
+uint8_t deathAnimationTicks = 20;
 void updateEnemyStates(){
 	for(int i = 0 ; i < 20 ; i++){
 		if(enemyList[i].isAlive == 0){
-			enemyList[i].ticksSinceLastChange++;
 			continue;
 		}else if(enemyList[i].isDying == 1){
-			enemyList[i].ticksSinceLastChange++;
+			if(!(enemyList[i].ticksSinceLastChange == deathAnimationTicks)) continue;
 			enemyList[i].isDying++ ;
 			ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_dying1);
+			enemyList[i].ticksSinceLastChange = 0;
 		}else if(enemyList[i].isDying == 2){
+			if(!(enemyList[i].ticksSinceLastChange == deathAnimationTicks)) continue;
 			enemyList[i].isDying++ ;
 			ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_dying2);
+			enemyList[i].ticksSinceLastChange = 0;
 		}else if(enemyList[i].isDying == 3){
+			if(!(enemyList[i].ticksSinceLastChange == deathAnimationTicks)) continue;
 			enemyList[i].isAlive = 0;
 			enemyList[i].isDying = 0;
 			ST7735_FillRectangleFast(enemyList[i].x , enemyList[i].y , 8 , 8 , 0x0000);
@@ -315,8 +325,8 @@ void updatePlayerSpeed(){
 		return;
 	}
 
-	if(playerObj.dx == 0x3) speed &= ~(0x09);
-	if(playerObj.dy == 0x3) speed &= ~(0x11);
+	if(playerObj.dx == 0x2) speed &= ~(0x09);
+	if(playerObj.dy == 0x2) speed &= ~(0x11);
 
 
 	if(speed & DOWN_Pin) playerObj.dy++;
@@ -325,10 +335,32 @@ void updatePlayerSpeed(){
 	if(speed & RIGHT_Pin) playerObj.dx++;
 }
 
+
+int checkIfOutOfBounds(){
+	uint8_t futureX = playerObj.x + playerObj.dx;
+	uint8_t futureY = playerObj.y + playerObj.dy;
+
+	if(futureX >= 117) {
+		return 1;
+	}
+	else  if(futureY >= 116){
+		return 1;
+	}else{
+		return 0;
+	}
+
+}
+
 void updatePlayerPosition(){
 	ST7735_FillRectangleFast(playerObj.x , playerObj.y , 12 , 11 , 0x0000);
-	playerObj.x += playerObj.dx ;
-	playerObj.y += playerObj.dy ;
+
+	uint8_t outofBounds = checkIfOutOfBounds();
+
+	if(!outofBounds){
+		playerObj.x += playerObj.dx ;
+		playerObj.y += playerObj.dy ;
+	}
+
 
 	ST7735_DrawImage(playerObj.x , playerObj.y , 12 , 11 , player_ship_flat);
 }
@@ -345,11 +377,12 @@ uint8_t tickSpeed = 50;
 void createEnemyBullets(uint8_t patternIteration){
 
 	for(int k = 0; k < 5 ; k++){
+		if(enemyList[attackPattern[patternIteration][k]].isAlive && !(enemyList[attackPattern[patternIteration][k]].isDying))
 		for (int i = 0; i < MAXENEMYBULLETS; i++) {
 		            if (!(evilBullets[i].isActive)) {
 		                evilBullets[i].x = enemyList[attackPattern[patternIteration][k]].x+4;
 		                evilBullets[i].y = enemyList[attackPattern[patternIteration][k]].y+9;
-		                evilBullets[i].dy = -3;
+		                evilBullets[i].dy = -2;
 		                evilBullets[i].isActive = 1;
 		                break;
 		            }
@@ -357,29 +390,167 @@ void createEnemyBullets(uint8_t patternIteration){
 	}
 
 }
+uint8_t negativeMask = 0x80;
+void generateNewSpeeds(struct enemy* enemy) {
+    // Random small values between -3 and +3
+    int8_t delx = (rand() % 7) - 3;
+    int8_t dely = (rand() % 7) - 3;
 
+    enemy->dx = delx;
+    enemy->dy = dely;
+}
 
-void updateEnemyAnimations(){
+void updateEnemyAnimations(){ //Change enemy animations and also their speeds
 	  for(int i = 0 ; i < 20 ; i++){
-		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying == 1){
+		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
 			  continue;
 		  }
 
 		  if(enemyList[i].ticksSinceLastChange == enemyList[i].ticksUntilSpriteChange){
 			  enemyList[i].sprite ^= 1;
-			  if(!enemyList[i].sprite){
-				  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat1);
-			  }else{
-				  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat2);
-			  }
 
+			  generateNewSpeeds(&enemyList[i]);
 			  enemyList[i].ticksSinceLastChange = 0;
-		  }else{
-			  enemyList[i].ticksSinceLastChange++;
 		  }
 
 	  }
 }
+
+void incrementTicksSinceLastAnimationChange(){
+	for(int i = 0 ; i < 20 ; i++){
+		enemyList[i].ticksSinceLastChange++;
+	}
+}
+
+uint8_t threshold = 8;
+void enemyCollisionAvoidance(struct enemy* enemy , int i ){ //i is the index of the enmey in the enemylist array
+		uint8_t currentEnemyX = enemy->x;
+		uint8_t currentEnemyY = enemy->y;
+		uint8_t conflict = 0;
+
+		uint8_t futureEnemyX = currentEnemyX + enemy->dx;
+		uint8_t futureEnemyY = currentEnemyY + enemy->dy;
+
+		for(int k = 0 ; k < 20 ; k++){
+			if(k == i) continue;
+
+			uint8_t delx = abs(futureEnemyX-enemyList[k].x);
+			uint8_t dely = abs(futureEnemyY-enemyList[k].y);
+
+			if((delx < threshold ) && (dely < threshold ) ){
+				conflict = 1 ;
+				break ; //return early without modification if overlap found
+			}
+
+
+
+		}
+
+		if(!conflict){
+			enemy->x = futureEnemyX;
+			enemy->y = futureEnemyY;
+		}
+
+
+}
+uint8_t movementTicks = 2;
+
+int enemyOutOfBounds(struct enemy* enemy){
+	uint8_t futureX = enemy->x + enemy->dx;
+	uint8_t futureY = enemy->y + enemy->dy;
+
+	if(futureX >= 120) {
+		return 1;
+	}
+	else  if(futureY >= 120){
+		return 1;
+	}else{
+		return 0;
+	}
+}
+void updateEnemyPositions(){
+	for(int i = 0 ; i < 20 ; i++){
+		if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
+			continue;
+		}
+
+		if(!enemyList[i].ticksSinceLastChange%movementTicks && !enemyList[i].ticksSinceLastChange){
+
+			uint8_t outOfBounds = enemyOutOfBounds(&enemyList[i]);
+
+			ST7735_FillRectangleFast(enemyList[i].x , enemyList[i].y , 8 , 8 , 0x0000);
+
+
+			if(!outOfBounds) enemyCollisionAvoidance(&enemyList[i] , i);
+
+			 if(!enemyList[i].sprite){
+				  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat1);
+			 }else{
+				  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat2);
+			 }
+
+
+		}
+
+	}
+}
+uint8_t gameState = 0 ;
+void gameOverScreen(void){
+	uint8_t y_upper = 64;
+	uint8_t y_lower = 63;
+	for(int i = 0; i < 20 ; i++ ){
+		ST7735_FillRectangleFast(0 , y_upper , 128 , 1 , 0x0000);
+		HAL_Delay(100);
+		ST7735_FillRectangleFast(0 , y_lower , 128 , 1 , 0x0000);
+		HAL_Delay(100);
+
+		y_upper--;
+		y_lower++;
+
+
+	}
+
+	ST7735_WriteString(22 , 52 , "GAME OVER" , Font_11x18 , 0xb000 , 0x0000);
+
+	HAL_Delay(5000);
+
+	ST7735_FillScreenFast(0x0000);
+	ST7735_WriteString(9 , 64 , "Press any button" , Font_7x10 , 0xFFFF , 0x0000);
+	ST7735_WriteString(22 , 74 , "to continue" , Font_7x10 , 0xFFFF , 0x0000);
+
+	gameState = 0;
+}
+
+uint8_t playerCollisionLogic(uint8_t delx , uint8_t dely){
+	if(delx < 5 && dely >5){
+		return 1;
+	}else if(delx > 5 && delx < 7){
+		return 1;
+	}else if(delx > 7 && dely > 5){
+		return 1;
+	}
+
+	return 0;
+}
+void calculatePlayerCollisions(){
+	for(int i = 0 ; i < MAXENEMYBULLETS ; i++){
+		if(evilBullets[i].isActive == 0) continue;
+
+
+		uint8_t delx = evilBullets[i].x - playerObj.x;
+		uint8_t dely = evilBullets[i].y - playerObj.y;
+
+		if(delx < 11 && dely < 12){
+			uint8_t isHit = playerCollisionLogic(delx , dely);
+			if(isHit){
+				gameOverScreen();
+			}
+		}
+	}
+}
+
+ //0 is the screen , 1 means its in play , 2 means you died
+
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -409,14 +580,31 @@ int main(void)
   /* USER CODE BEGIN 2 */
   ST7735_Init();
   ST7735_FillScreenFast(0x0000);
+  ST7735_WriteString(56 , 64 , "EDW Project" , Font_16x26 , 0x4323 , 0x0000);
+  HAL_Delay(5000);
+  ST7735_FillScreenFast(0x0000);
+  ST7735_WriteString(2,2, "Contributers:" , Font_7x10 , 0x3245 , 0x0000);
+  ST7735_WriteString(2 , 22 ,"Inderpreet Singh" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_WriteString(10 , 32 ,"Design &" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_WriteString(10 , 42 ,"Programming" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_WriteString(2 , 52 ,"Yash Dharia" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_WriteString(10 , 62 ,"Enclosure Design" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_WriteString(2 , 72 ,"Anubhav" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_WriteString(10 , 82 ,"Documentation" , Font_7x10 , 0xAE89 , 0x0000);
+  HAL_Delay(5000);
+  ST7735_WriteString(10 , 32 ,"2023UEC2691" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_FillRectangleFast(0 , 62 , 128 , 10 , 0x0000);
+  ST7735_WriteString(10 , 62 ,"2023UEC2696" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_FillRectangleFast(0 , 82 , 128 , 10 , 0x0000);
+  ST7735_WriteString(10 , 82 ,"2023UEC2679" , Font_7x10 , 0xAE89 , 0x0000);
+  ST7735_FillRectangleFast(0 , 42 , 128 , 10 , 0x0000);
+  HAL_Delay(5000);
+  ST7735_FillScreenFast(0x0000);
+  ST7735_WriteString(9 , 64 , "Press any button" , Font_7x10 , 0xFFFF , 0x0000);
+  ST7735_WriteString(22 , 74 , "to continue" , Font_7x10 , 0xFFFF , 0x0000);
 
-  init_Bullets();
 
-  for(int i = 0 ; i <20 ; i++){
-	  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat1 );
-  }
 
-  ST7735_DrawImage(playerObj.x , playerObj.y , 12 , 11 , player_ship_flat);
 
   /* USER CODE END 2 */
 
@@ -426,6 +614,27 @@ int main(void)
   uint8_t currentPatternIteration = 0;
   while (1)
   {
+	  if(gameState == 0){
+		  if(GPIOA->IDR & 0x001F){
+			  gameState = 1;
+		  }
+
+		  continue;
+
+	  }
+
+	  if(gameState == 1){
+		  init_Bullets();
+		  init_enemyBullets();
+		  ST7735_FillScreenFast(0x0000);
+		  for(int i = 0 ; i <20 ; i++){
+		  	  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat1 );
+		    }
+
+		    ST7735_DrawImage(playerObj.x , playerObj.y , 12 , 11 , player_ship_flat);
+		    gameState = 3;
+		    HAL_Delay(1000);
+	  }
 	  if(timeSinceLastAttack%10 == 0){
 		  createEnemyBullets(currentPatternIteration);
 		  if(currentPatternIteration == 10){
@@ -440,8 +649,13 @@ int main(void)
 	  updatePlayerPosition();
 	  update_Bullets();
 	  calculateCollisions();
+	  calculatePlayerCollisions();
 	  updateEnemyStates();
 	  updateEnemyAnimations();
+	  updateEnemyPositions();
+
+	  incrementTicksSinceLastAnimationChange();
+
 	  HAL_Delay(tickSpeed);
     /* USER CODE END WHILE */
 
@@ -450,6 +664,8 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
+
+
 
 /**
   * @brief System Clock Configuration
