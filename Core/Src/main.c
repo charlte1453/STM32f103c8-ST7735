@@ -119,26 +119,26 @@ void init_enemyBullets(){
 
 
 struct enemy enemyList[20] = {
-    {124, 42 , 1 , 0 , 1 , 0 , 83 , 0},
-    {59, 15 , 1 , 0 , 1  , 1 , 132 , 0 },
-    {44, 1 , 1 , 0  ,1 , 1 , 245 , 0},
-    {102, 4 , 1 , 0, 1 , 0 , 123 , 0},
-    {8, 16 , 1 , 0 , 1 , 1 , 142 , 0},
-    {44, 28 , 1 , 0 ,1 ,  1 , 56 , 0},
-    {24, 22 , 1 , 0 ,1 , 0 , 89 , 0},
-    {111, 30 , 1 , 0 , 1 , 1 , 78 , 0},
-    {87, 13 , 1 , 0 , 1 , 0 , 79 , 0},
-    {81, 37 , 1 , 0 , 1, 1 , 90 , 0},
-    {6, 33 , 1 , 0 , 1 , 1 , 88 , 0},
-    {35, 43 , 1 , 0 , 1 , 1 , 99 , 0},
-    {105, 49  , 1 , 0, 1, 1 , 98 , 0},
-    {69, 48 , 1 , 0 , 1 , 1 , 113 , 0},
-    {119, 15 , 1 , 0 , 1, 0 , 150 , 0},
-    {71, 1 , 1 , 0 , 1 , 0 , 123 , 0},
-    {24, 1 , 1 , 0 , 1 , 1 , 156, 0},
-    {127, 1 ,1 , 0 , 1 , 1 , 112 , 0},
-    {19, 48 , 1 , 0, 1, 0  , 123 , 0},
-    {52, 46 , 1 , 0 , 1 , 0 , 88 , 0}
+    {124, 42 , 1 , 0 , 1 , 0 , 22 , 0},
+    {59, 15 , 1 , 0 , 1  , 1 , 25 , 0 },
+    {44, 1 , 1 , 0  ,1 , 1 , 18 , 0},
+    {102, 4 , 1 , 0, 1 , 0 , 23 , 0},
+    {8, 16 , 1 , 0 , 1 , 1 , 21 , 0},
+    {44, 28 , 1 , 0 ,1 ,  1 , 15 , 0},
+    {24, 22 , 1 , 0 ,1 , 0 , 20 , 0},
+    {111, 30 , 1 , 0 , 1 , 1 , 21 , 0},
+    {87, 13 , 1 , 0 , 1 , 0 , 20 , 0},
+    {81, 37 , 1 , 0 , 1, 1 , 21 , 0},
+    {6, 33 , 1 , 0 , 1 , 1 , 17 , 0},
+    {35, 43 , 1 , 0 , 1 , 1 , 14 , 0},
+    {105, 49  , 1 , 0, 1, 1 , 25 , 0},
+    {69, 48 , 1 , 0 , 1 , 1 , 20 , 0},
+    {119, 15 , 1 , 0 , 1, 0 , 19 , 0},
+    {71, 1 , 1 , 0 , 1 , 0 , 21 , 0},
+    {24, 1 , 1 , 0 , 1 , 1 , 22 , 0},
+    {127, 1 ,1 , 0 , 1 , 1 , 20 , 0},
+    {19, 48 , 1 , 0, 1, 0  , 21 , 0},
+    {52, 46 , 1 , 0 , 1 , 0 , 20 , 0}
 };
 
 uint8_t attackPattern[10][5] = {
@@ -361,8 +361,21 @@ void createEnemyBullets(uint8_t patternIteration){
 
 void updateEnemyAnimations(){
 	  for(int i = 0 ; i < 20 ; i++){
-		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
+		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying == 1){
 			  continue;
+		  }
+
+		  if(enemyList[i].ticksSinceLastChange == enemyList[i].ticksUntilSpriteChange){
+			  enemyList[i].sprite ^= 1;
+			  if(!enemyList[i].sprite){
+				  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat1);
+			  }else{
+				  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat2);
+			  }
+
+			  enemyList[i].ticksSinceLastChange = 0;
+		  }else{
+			  enemyList[i].ticksSinceLastChange++;
 		  }
 
 	  }
@@ -427,22 +440,8 @@ int main(void)
 	  updatePlayerPosition();
 	  update_Bullets();
 	  calculateCollisions();
-	  for(int i = 0 ; i < 20 ; i++){
-		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
-			  continue;
-		  }else{
-			  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat1);
-		  }
-	  }
 	  updateEnemyStates();
-	  HAL_Delay(tickSpeed);
-	  for(int i = 0 ; i < 20 ; i++){
-		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
-			  continue;
-		  }else{
-			  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat2);
-		  }
-	  }
+	  updateEnemyAnimations();
 	  HAL_Delay(tickSpeed);
     /* USER CODE END WHILE */
 
