@@ -58,12 +58,16 @@ struct enemy {
 	uint8_t y;
 	uint8_t isAlive;
 	uint8_t isDying;
+	uint8_t health;
+	uint8_t sprite;
+	uint8_t ticksUntilSpriteChange;
+	uint8_t ticksSinceLastChange;
 };
 
  struct bullet {
 	uint8_t x;
 	uint8_t y;
-	uint8_t speed;
+	int8_t speed;
 	uint8_t isActive;
 };
 
@@ -73,13 +77,16 @@ struct enemy {
 	int8_t dx;
 	int8_t dy;
 	uint8_t sprite; // 0 is normal , 1 is left orientated , 2 is right orientated
+	uint8_t health;
 };
+
+
 
 struct enemyBullets {
 	 uint8_t x;
 	 uint8_t y;
-	 uint8_t dx;
-	 uint8_t dy;
+	 int8_t dx;
+	 int8_t dy;
 	 uint8_t isActive;
  };
 
@@ -112,28 +119,29 @@ void init_enemyBullets(){
 
 
 struct enemy enemyList[20] = {
-    {124, 42 , 1 , 0 },
-    {59, 15 , 1 , 0},
-    {44, 1 , 1 , 0 },
-    {102, 4 , 1 , 0},
-    {8, 16 , 1 , 0},
-    {44, 28 , 1 , 0},
-    {24, 22 , 1 , 0},
-    {111, 30 , 1 , 0 },
-    {87, 13 , 1 , 0},
-    {81, 37 , 1 , 0},
-    {6, 33 , 1 , 0 },
-    {35, 43 , 1 , 0},
-    {105, 49  , 1 , 0},
-    {69, 48 , 1 , 0 },
-    {119, 15 , 1 , 0},
-    {71, 1 , 1 , 0},
-    {24, 1 , 1 , 0},
-    {127, 1 ,1 , 0},
-    {19, 48 , 1 , 0},
-    {52, 46 , 1 , 0}
+    {124, 42 , 1 , 0 , 1 , 0 , 83 , 0},
+    {59, 15 , 1 , 0 , 1  , 1 , 132 , 0 },
+    {44, 1 , 1 , 0  ,1 , 1 , 245 , 0},
+    {102, 4 , 1 , 0, 1 , 0 , 123 , 0},
+    {8, 16 , 1 , 0 , 1 , 1 , 142 , 0},
+    {44, 28 , 1 , 0 ,1 ,  1 , 56 , 0},
+    {24, 22 , 1 , 0 ,1 , 0 , 89 , 0},
+    {111, 30 , 1 , 0 , 1 , 1 , 78 , 0},
+    {87, 13 , 1 , 0 , 1 , 0 , 79 , 0},
+    {81, 37 , 1 , 0 , 1, 1 , 90 , 0},
+    {6, 33 , 1 , 0 , 1 , 1 , 88 , 0},
+    {35, 43 , 1 , 0 , 1 , 1 , 99 , 0},
+    {105, 49  , 1 , 0, 1, 1 , 98 , 0},
+    {69, 48 , 1 , 0 , 1 , 1 , 113 , 0},
+    {119, 15 , 1 , 0 , 1, 0 , 150 , 0},
+    {71, 1 , 1 , 0 , 1 , 0 , 123 , 0},
+    {24, 1 , 1 , 0 , 1 , 1 , 156, 0},
+    {127, 1 ,1 , 0 , 1 , 1 , 112 , 0},
+    {19, 48 , 1 , 0, 1, 0  , 123 , 0},
+    {52, 46 , 1 , 0 , 1 , 0 , 88 , 0}
 };
-int attackPattern[10][5] = {
+
+uint8_t attackPattern[10][5] = {
     {13,  2, 18,  7, 11},
     { 0,  9,  4,  1, 17},
     { 6, 14, 19, 12,  3},
@@ -142,10 +150,10 @@ int attackPattern[10][5] = {
     {10,  4,  1, 18, 11},
     { 3,  8, 17, 12,  5},
     {14,  9,  6, 19,  2},
-    { 7, 15, 20,  0, 10},
+    { 7, 15, 19,  0, 10},
     {16,  1,  3, 13,  9}
 };
-struct player playerObj = {64 , 110 ,  0 , 0};
+struct player playerObj = {64 , 110 ,  0 , 0 , 0};
 
 /* USER CODE END PV */
 
@@ -214,38 +222,54 @@ void update_Bullets(){
 			continue;
 		}
 
-		if(Bullets[i].y == 127){
+		if(Bullets[i].y >= 128){
 			Bullets[i].isActive = 0;
+			ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , 0x0000);
 		}
 
 		ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , 0x0000);
 		Bullets[i].y -= Bullets[i].speed;
 		ST7735_DrawPixel(Bullets[i].x , Bullets[i].y , 0xFFFF);
 	}
+
+	for(int i = 0 ; i < MAXENEMYBULLETS ; i++){
+		if(!evilBullets[i].isActive){
+			continue;
+		}
+		if(evilBullets[i].y >= 128){
+			evilBullets[i].isActive = 0;
+			ST7735_DrawPixel(evilBullets[i].x , evilBullets[i].y , 0x0000);
+		}
+
+		ST7735_DrawPixel(evilBullets[i].x , evilBullets[i].y , 0x0000);
+		evilBullets[i].y -= evilBullets[i].dy;
+		ST7735_DrawPixel(evilBullets[i].x , evilBullets[i].y , 0xFFFF);
+
+	}
 }
-//void EXTI3_IRQHandler(void){
-//
-//	/*if(~gameStarted){
-//		gameStarted = 1;
-//		EXTI->PR |= EXTI_PR_PR4;
-//
-//		return;
-//
-//	}*/
-//
-//	for (int i = 0; i < MAXBULLETS; i++) {
-//	            if (!Bullets[i].isActive) {
-//	                Bullets[i].x = playerObj.x+5;
-//	                Bullets[i].y = playerObj.y+1;
-//	                Bullets[i].speed = 4;
-//	                Bullets[i].isActive = 1;
-//	                break;
-//	            }
-//	        }
-//
-//	EXTI->PR |= EXTI_PR_PR3;
-//
-//}
+void EXTI2_IRQHandler(void){
+
+	/*if(~gameStarted){
+		gameStarted = 1;
+		EXTI->PR |= EXTI_PR_PR4;
+
+		return;
+
+	}*/
+
+	for (int i = 0; i < MAXBULLETS; i++) {
+	            if (!Bullets[i].isActive) {
+	                Bullets[i].x = playerObj.x+5;
+	                Bullets[i].y = playerObj.y+1;
+	                Bullets[i].speed = 4;
+	                Bullets[i].isActive = 1;
+	                break;
+	            }
+	}
+
+	EXTI->PR |= EXTI_PR_PR3;
+
+}
 //void EXTI1_IRQHandler(void){
 //
 //	/*if(~gameStarted){
@@ -266,8 +290,10 @@ void update_Bullets(){
 void updateEnemyStates(){
 	for(int i = 0 ; i < 20 ; i++){
 		if(enemyList[i].isAlive == 0){
+			enemyList[i].ticksSinceLastChange++;
 			continue;
 		}else if(enemyList[i].isDying == 1){
+			enemyList[i].ticksSinceLastChange++;
 			enemyList[i].isDying++ ;
 			ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_dying1);
 		}else if(enemyList[i].isDying == 2){
@@ -312,6 +338,35 @@ void updatePlayerPosition(){
   * @brief  The application entry point.
   * @retval int
   */
+
+
+uint8_t tickSpeed = 50;
+
+void createEnemyBullets(uint8_t patternIteration){
+
+	for(int k = 0; k < 5 ; k++){
+		for (int i = 0; i < MAXENEMYBULLETS; i++) {
+		            if (!(evilBullets[i].isActive)) {
+		                evilBullets[i].x = enemyList[attackPattern[patternIteration][k]].x+4;
+		                evilBullets[i].y = enemyList[attackPattern[patternIteration][k]].y+9;
+		                evilBullets[i].dy = -3;
+		                evilBullets[i].isActive = 1;
+		                break;
+		            }
+		}
+	}
+
+}
+
+
+void updateEnemyAnimations(){
+	  for(int i = 0 ; i < 20 ; i++){
+		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
+			  continue;
+		  }
+
+	  }
+}
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -354,9 +409,20 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
+  uint8_t timeSinceLastAttack = 1;
+  uint8_t currentPatternIteration = 0;
   while (1)
   {
+	  if(timeSinceLastAttack%10 == 0){
+		  createEnemyBullets(currentPatternIteration);
+		  if(currentPatternIteration == 10){
+			  currentPatternIteration = 0;
+		  }
+		  currentPatternIteration++;
+		  timeSinceLastAttack = 1;
+	  }else{
+		  timeSinceLastAttack++;
+	  }
 	  updatePlayerSpeed();
 	  updatePlayerPosition();
 	  update_Bullets();
@@ -369,7 +435,7 @@ int main(void)
 		  }
 	  }
 	  updateEnemyStates();
-	  HAL_Delay(100);
+	  HAL_Delay(tickSpeed);
 	  for(int i = 0 ; i < 20 ; i++){
 		  if(enemyList[i].isAlive == 0 || enemyList[i].isDying != 0){
 			  continue;
@@ -377,8 +443,7 @@ int main(void)
 			  ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_flat2);
 		  }
 	  }
-	  HAL_Delay(100);
-
+	  HAL_Delay(tickSpeed);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -552,11 +617,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : DOWN_Pin RIGHT_Pin FIRE_Pin LEFT_Pin
-                           UP_Pin */
-  GPIO_InitStruct.Pin = DOWN_Pin|RIGHT_Pin|FIRE_Pin|LEFT_Pin
-                          |UP_Pin;
+  /*Configure GPIO pins : DOWN_Pin RIGHT_Pin LEFT_Pin UP_Pin */
+  GPIO_InitStruct.Pin = DOWN_Pin|RIGHT_Pin|LEFT_Pin|UP_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -579,6 +648,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

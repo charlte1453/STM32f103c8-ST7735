@@ -1,6 +1,7 @@
 
 
 #include <stdint.h>
+#include <main.h>
 
 
 typedef struct {
@@ -8,6 +9,8 @@ typedef struct {
 	uint16_t width;
 	uint16_t height;
 } sprite;
+
+
 
 extern sprite Player_ship_flat;
 extern sprite Enemy_ship_flat1;

@@ -61,8 +61,6 @@ void Error_Handler(void);
 #define DOWN_GPIO_Port GPIOA
 #define RIGHT_Pin GPIO_PIN_1
 #define RIGHT_GPIO_Port GPIOA
-#define FIRE_Pin GPIO_PIN_2
-#define FIRE_GPIO_Port GPIOA
 #define LEFT_Pin GPIO_PIN_3
 #define LEFT_GPIO_Port GPIOA
 #define UP_Pin GPIO_PIN_4
