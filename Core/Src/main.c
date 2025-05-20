@@ -17,6 +17,8 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+
+//hiiii hiiiiii 
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -187,11 +189,14 @@ static void MX_USB_PCD_Init(void);
 //	EXTI->PR |= EXTI_PR_PR4;
 //
 //}
+uint8_t enemiesAlive = 20;
 
 void killEnemy(struct enemy* enemy){
 	enemy->isDying = 1;
 	enemy->ticksSinceLastChange = 0;
-	ST7735_DrawImage(enemy->x , enemy->y , 8 , 8 , enemy_ship_dying1);
+	ST7735_DrawImage(enemy->x , enemy->y , 8 , 8 , enemy_ship_dying2);
+
+
 
 }
 void calculateCollisions(){
@@ -201,7 +206,7 @@ void calculateCollisions(){
 		}
 
 		for(int j = 0 ; j <20 ; j++){
-			if(enemyList[j].isAlive == 0){
+			if(enemyList[j].isAlive == 0 || enemyList[j].isDying == 1){
 				continue;
 			}
 
@@ -301,7 +306,7 @@ void updateEnemyStates(){
 		}else if(enemyList[i].isDying == 1){
 			if(!(enemyList[i].ticksSinceLastChange == deathAnimationTicks)) continue;
 			enemyList[i].isDying++ ;
-			ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_dying1);
+			ST7735_DrawImage(enemyList[i].x , enemyList[i].y , 8 , 8 , enemy_ship_dying2);
 			enemyList[i].ticksSinceLastChange = 0;
 		}else if(enemyList[i].isDying == 2){
 			if(!(enemyList[i].ticksSinceLastChange == deathAnimationTicks)) continue;
@@ -312,6 +317,7 @@ void updateEnemyStates(){
 			if(!(enemyList[i].ticksSinceLastChange == deathAnimationTicks)) continue;
 			enemyList[i].isAlive = 0;
 			enemyList[i].isDying = 0;
+			enemiesAlive--;
 			ST7735_FillRectangleFast(enemyList[i].x , enemyList[i].y , 8 , 8 , 0x0000);
 		}
 	}
@@ -549,8 +555,48 @@ void calculatePlayerCollisions(){
 	}
 }
 
- //0 is the screen , 1 means its in play , 2 means you died
+void checkForVictory(){
+	if(enemiesAlive == 0){
+		    uint8_t y_upper = 64;
+			uint8_t y_lower = 63;
+			for(int i = 0; i < 20 ; i++ ){
+				ST7735_FillRectangleFast(0 , y_upper , 128 , 1 , 0x0000);
+				HAL_Delay(100);
+				ST7735_FillRectangleFast(0 , y_lower , 128 , 1 , 0x0000);
+				HAL_Delay(100);
 
+				y_upper--;
+				y_lower++;
+
+
+			}
+
+			ST7735_WriteString(22 , 52 , "YOU WIN" , Font_11x18 , 0xffc0 , 0x0000);
+
+			HAL_Delay(5000);
+
+			ST7735_FillScreenFast(0x0000);
+			ST7735_WriteString(9 , 64 , "Press any button" , Font_7x10 , 0xFFFF , 0x0000);
+			ST7735_WriteString(22 , 74 , "to continue" , Font_7x10 , 0xFFFF , 0x0000);
+
+			gameState = 0;
+	}
+}
+
+void killAll(){
+	for(int i = 0 ; i  < 20 ; i++){
+		killEnemy(&enemyList[i]);
+	}
+}
+
+void checkForCheats(void){
+	if((GPIOA->IDR & 0x001F) == 0x001F){
+		killAll();
+	}
+}
+
+ //0 is the screen , 1 means its in play , 2 means you died
+uint8_t ticksForAttack = 30;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -581,7 +627,7 @@ int main(void)
   ST7735_Init();
   ST7735_FillScreenFast(0x0000);
   ST7735_WriteString(56 , 64 , "EDW Project" , Font_16x26 , 0x4323 , 0x0000);
-  HAL_Delay(5000);
+  HAL_Delay(3000);
   ST7735_FillScreenFast(0x0000);
   ST7735_WriteString(2,2, "Contributers:" , Font_7x10 , 0x3245 , 0x0000);
   ST7735_WriteString(2 , 22 ,"Inderpreet Singh" , Font_7x10 , 0xAE89 , 0x0000);
@@ -591,14 +637,14 @@ int main(void)
   ST7735_WriteString(10 , 62 ,"Enclosure Design" , Font_7x10 , 0xAE89 , 0x0000);
   ST7735_WriteString(2 , 72 ,"Anubhav" , Font_7x10 , 0xAE89 , 0x0000);
   ST7735_WriteString(10 , 82 ,"Documentation" , Font_7x10 , 0xAE89 , 0x0000);
-  HAL_Delay(5000);
+  HAL_Delay(4000);
   ST7735_WriteString(10 , 32 ,"2023UEC2691" , Font_7x10 , 0xAE89 , 0x0000);
   ST7735_FillRectangleFast(0 , 62 , 128 , 10 , 0x0000);
   ST7735_WriteString(10 , 62 ,"2023UEC2696" , Font_7x10 , 0xAE89 , 0x0000);
   ST7735_FillRectangleFast(0 , 82 , 128 , 10 , 0x0000);
   ST7735_WriteString(10 , 82 ,"2023UEC2679" , Font_7x10 , 0xAE89 , 0x0000);
   ST7735_FillRectangleFast(0 , 42 , 128 , 10 , 0x0000);
-  HAL_Delay(5000);
+  HAL_Delay(3000);
   ST7735_FillScreenFast(0x0000);
   ST7735_WriteString(9 , 64 , "Press any button" , Font_7x10 , 0xFFFF , 0x0000);
   ST7735_WriteString(22 , 74 , "to continue" , Font_7x10 , 0xFFFF , 0x0000);
@@ -634,8 +680,10 @@ int main(void)
 		    ST7735_DrawImage(playerObj.x , playerObj.y , 12 , 11 , player_ship_flat);
 		    gameState = 3;
 		    HAL_Delay(1000);
+		    checkForCheats();
 	  }
-	  if(timeSinceLastAttack%10 == 0){
+
+	  if(timeSinceLastAttack%ticksForAttack == 0){
 		  createEnemyBullets(currentPatternIteration);
 		  if(currentPatternIteration == 10){
 			  currentPatternIteration = 0;
@@ -645,6 +693,8 @@ int main(void)
 	  }else{
 		  timeSinceLastAttack++;
 	  }
+
+	  checkForVictory();
 	  updatePlayerSpeed();
 	  updatePlayerPosition();
 	  update_Bullets();
